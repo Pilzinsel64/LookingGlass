@@ -9,33 +9,35 @@ import com.xcompwiz.lookingglass.log.LoggerUtils;
 import cpw.mods.fml.common.event.FMLInterModComms.IMCMessage;
 
 public class IMCHandler {
-	public interface IMCProcessor {
-		public void process(IMCMessage message);
-	}
 
-	private static Map<String, IMCProcessor>	processors	= new HashMap<String, IMCProcessor>();
+    public interface IMCProcessor {
 
-	static {
-		registerProcessor("api", new IMCAPIRegister());
-	}
+        public void process(IMCMessage message);
+    }
 
-	private static void registerProcessor(String key, IMCProcessor processor) {
-		processors.put(key.toLowerCase(), processor);
-	}
+    private static Map<String, IMCProcessor> processors = new HashMap<String, IMCProcessor>();
 
-	public static void process(ImmutableList<IMCMessage> messages) {
-		for (IMCMessage message : messages) {
-			String key = message.key.toLowerCase();
-			IMCProcessor process = processors.get(key);
-			if (process == null) {
-				LoggerUtils.error("IMC message '%s' from [%s] unrecognized", key, message.getSender());
-			}
-			try {
-				process.process(message);
-			} catch (Exception e) {
-				LoggerUtils.error("Failed to process IMC message '%s' from [%s]", key, message.getSender());
-				e.printStackTrace();
-			}
-		}
-	}
+    static {
+        registerProcessor("api", new IMCAPIRegister());
+    }
+
+    private static void registerProcessor(String key, IMCProcessor processor) {
+        processors.put(key.toLowerCase(), processor);
+    }
+
+    public static void process(ImmutableList<IMCMessage> messages) {
+        for (IMCMessage message : messages) {
+            String key = message.key.toLowerCase();
+            IMCProcessor process = processors.get(key);
+            if (process == null) {
+                LoggerUtils.error("IMC message '%s' from [%s] unrecognized", key, message.getSender());
+            }
+            try {
+                process.process(message);
+            } catch (Exception e) {
+                LoggerUtils.error("Failed to process IMC message '%s' from [%s]", key, message.getSender());
+                e.printStackTrace();
+            }
+        }
+    }
 }

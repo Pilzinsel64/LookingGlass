@@ -15,29 +15,31 @@ import cpw.mods.fml.relauncher.SideOnly;
 
 public class LookingGlassForgeEventHandler {
 
-	@SideOnly(Side.CLIENT)
-	@SubscribeEvent
-	public void onChunkUnload(ChunkEvent.Unload event) {
-		if (!event.world.isRemote) return;
-		Chunk chunk = event.getChunk();
-		// When we unload a chunk client side, we want to make sure that any view entities clean up. Not strictly necessary, but a good practice.
-		// I don't trust vanilla to unload entity references quickly/correctly/completely.
-		for (int i = 0; i < chunk.entityLists.length; ++i) {
-			List<Entity> list = chunk.entityLists[i];
-			for (Entity entity : list) {
-				if (entity instanceof EntityPortal) ((EntityPortal) entity).releaseActiveView();
-			}
-		}
-	}
+    @SideOnly(Side.CLIENT)
+    @SubscribeEvent
+    public void onChunkUnload(ChunkEvent.Unload event) {
+        if (!event.world.isRemote) return;
+        Chunk chunk = event.getChunk();
+        // When we unload a chunk client side, we want to make sure that any view entities clean up. Not strictly
+        // necessary, but a good practice.
+        // I don't trust vanilla to unload entity references quickly/correctly/completely.
+        for (int i = 0; i < chunk.entityLists.length; ++i) {
+            List<Entity> list = chunk.entityLists[i];
+            for (Entity entity : list) {
+                if (entity instanceof EntityPortal) ((EntityPortal) entity).releaseActiveView();
+            }
+        }
+    }
 
-	@SideOnly(Side.CLIENT)
-	@SubscribeEvent
-	public void onWorldUnload(WorldEvent.Unload event) {
-		if (!event.world.isRemote) return;
-		// When we unload a world client side, we want to make sure that any view entities clean up. Not strictly necessary, but a good practice.
-		// I don't trust vanilla to unload entity references quickly/correctly/completely.
-		for (Object entity : event.world.loadedEntityList) {
-			if (entity instanceof EntityPortal) ((EntityPortal) entity).releaseActiveView();
-		}
-	}
+    @SideOnly(Side.CLIENT)
+    @SubscribeEvent
+    public void onWorldUnload(WorldEvent.Unload event) {
+        if (!event.world.isRemote) return;
+        // When we unload a world client side, we want to make sure that any view entities clean up. Not strictly
+        // necessary, but a good practice.
+        // I don't trust vanilla to unload entity references quickly/correctly/completely.
+        for (Object entity : event.world.loadedEntityList) {
+            if (entity instanceof EntityPortal) ((EntityPortal) entity).releaseActiveView();
+        }
+    }
 }

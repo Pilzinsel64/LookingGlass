@@ -2,6 +2,7 @@ package com.xcompwiz.lookingglass.network;
 
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.entity.player.EntityPlayerMP;
+
 import cpw.mods.fml.common.network.internal.FMLProxyPacket;
 
 /**
@@ -9,23 +10,25 @@ import cpw.mods.fml.common.network.internal.FMLProxyPacket;
  */
 // TODO: This class doesn't need to exist, it's just a (Player, Packet) tuple
 public class PacketHolder {
-	EntityPlayer	player;
-	FMLProxyPacket	packet;
 
-	public PacketHolder(EntityPlayer player, FMLProxyPacket packet) {
-		this.player = player;
-		this.packet = packet;
-	}
+    EntityPlayer player;
+    FMLProxyPacket packet;
 
-	public boolean belongsToPlayer(EntityPlayer p) {
-		return player.equals(p);
-	}
+    public PacketHolder(EntityPlayer player, FMLProxyPacket packet) {
+        this.player = player;
+        this.packet = packet;
+    }
 
-	public int sendPacket() {
-		if (packet != null) {
-			LookingGlassPacketManager.bus.sendTo(packet, (EntityPlayerMP) player);
-			return packet.payload().writerIndex();
-		}
-		return 0;
-	}
+    public boolean belongsToPlayer(EntityPlayer p) {
+        return player.equals(p);
+    }
+
+    public int sendPacket() {
+        if (packet != null) {
+            LookingGlassPacketManager.bus.sendTo(packet, (EntityPlayerMP) player);
+            return packet.payload()
+                .writerIndex();
+        }
+        return 0;
+    }
 }

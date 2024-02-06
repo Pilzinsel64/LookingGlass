@@ -1,16 +1,21 @@
-[
 {
-  "modid": "LookingGlass",
-  "name": "Looking Glass",
-  "description": "\"In another moment Alice was through the glass, and had jumped lightly down into the Looking-glass room.\" - Through the Looking-Glass, and What Alice Found There; Lewis Carroll",
-  "version": "${version}",
-  "mcversion": "${mcversion}",
-  "url": "http://xcompwiz.com",
-  "updateUrl": "",
-  "authorList": ["XCompWiz"],
-  "credits": "shadowking97, for following the plan in my head",
-  "logoFile": "/logo.png",
-  "screenshots": [],
-  "dependencies": []
+	"modListVersion": 2,
+	"modList": [{
+		"modid": "${modId}",
+		"name": "${modName}",
+		"description": "\"In another moment Alice was through the glass, and had jumped lightly down into the Looking-glass room.\" - Through the Looking-Glass, and What Alice Found There; Lewis Carroll",
+		"version": "${modVersion}",
+		"mcversion": "${minecraftVersion}",
+		"url": "https://github.com/Pilzinsel64/LookingGlass",
+		"updateUrl": "",
+		"authorList": ["Pilzinsel64", "XCompWiz"],
+		"credits": "",
+		"logoFile": "/logo.png",
+		"screenshots": [],
+		"parent": "",
+		"requiredMods": [],
+		"dependencies": [],
+		"dependants": [],
+		"useDependencyInformation": false
+	}]
 }
-]

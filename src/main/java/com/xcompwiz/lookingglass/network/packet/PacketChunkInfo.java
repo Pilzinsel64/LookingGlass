@@ -1,7 +1,5 @@
 package com.xcompwiz.lookingglass.network.packet;
 
-import io.netty.buffer.ByteBuf;
-
 import java.util.concurrent.Semaphore;
 import java.util.zip.DataFormatException;
 import java.util.zip.Deflater;
@@ -22,237 +20,258 @@ import com.xcompwiz.lookingglass.log.LoggerUtils;
 import com.xcompwiz.lookingglass.network.LookingGlassPacketManager;
 
 import cpw.mods.fml.common.network.internal.FMLProxyPacket;
+import io.netty.buffer.ByteBuf;
 
 /**
  * Based on code from Ken Butler/shadowking97
  */
 public class PacketChunkInfo extends PacketHandlerBase {
-	private static byte[]		inflatearray;
-	private static byte[]		dataarray;
-	private static Semaphore	deflateGate	= new Semaphore(1);
 
-	private static int deflate(byte[] chunkData, byte[] compressedChunkData) {
-		Deflater deflater = new Deflater(-1);
-		if (compressedChunkData == null) return 0;
-		int bytesize = 0;
-		try {
-			deflater.setInput(chunkData, 0, chunkData.length);
-			deflater.finish();
-			bytesize = deflater.deflate(compressedChunkData);
-		} finally {
-			deflater.end();
-		}
-		return bytesize;
-	}
+    private static byte[] inflatearray;
+    private static byte[] dataarray;
+    private static Semaphore deflateGate = new Semaphore(1);
 
-	public static FMLProxyPacket createPacket(Chunk chunk, boolean includeinit, int subid, int dim) {
-		int xPos = chunk.xPosition;
-		int zPos = chunk.zPosition;
-		Extracted extracted = getMapChunkData(chunk, includeinit, subid);
-		int yMSBPos = extracted.field_150281_c;
-		int yPos = extracted.field_150280_b;
-		byte[] chunkData = extracted.field_150282_a;
+    private static int deflate(byte[] chunkData, byte[] compressedChunkData) {
+        Deflater deflater = new Deflater(-1);
+        if (compressedChunkData == null) return 0;
+        int bytesize = 0;
+        try {
+            deflater.setInput(chunkData, 0, chunkData.length);
+            deflater.finish();
+            bytesize = deflater.deflate(compressedChunkData);
+        } finally {
+            deflater.end();
+        }
+        return bytesize;
+    }
 
-		deflateGate.acquireUninterruptibly();
-		byte[] compressedChunkData = new byte[chunkData.length];
-		int len = deflate(chunkData, compressedChunkData);
-		deflateGate.release();
+    public static FMLProxyPacket createPacket(Chunk chunk, boolean includeinit, int subid, int dim) {
+        int xPos = chunk.xPosition;
+        int zPos = chunk.zPosition;
+        Extracted extracted = getMapChunkData(chunk, includeinit, subid);
+        int yMSBPos = extracted.field_150281_c;
+        int yPos = extracted.field_150280_b;
+        byte[] chunkData = extracted.field_150282_a;
 
-		// This line may look like black magic (and, well, it is), but it's actually just returning a class reference for this class. Copy-paste safe.
-		ByteBuf data = PacketHandlerBase.createDataBuffer((Class<? extends PacketHandlerBase>) new Object() {}.getClass().getEnclosingClass());
+        deflateGate.acquireUninterruptibly();
+        byte[] compressedChunkData = new byte[chunkData.length];
+        int len = deflate(chunkData, compressedChunkData);
+        deflateGate.release();
 
-		data.writeInt(dim);
-		data.writeInt(xPos);
-		data.writeInt(zPos);
-		data.writeBoolean(includeinit);
-		data.writeShort((short) (yPos & 65535));
-		data.writeShort((short) (yMSBPos & 65535));
-		data.writeInt(len);
-		data.writeInt(chunkData.length);
-		data.ensureWritable(len);
-		data.writeBytes(compressedChunkData, 0, len);
+        // This line may look like black magic (and, well, it is), but it's actually just returning a class reference
+        // for this class. Copy-paste safe.
+        ByteBuf data = PacketHandlerBase.createDataBuffer(
+            (Class<? extends PacketHandlerBase>) new Object() {}.getClass()
+                .getEnclosingClass());
 
-		return buildPacket(data);
-	}
+        data.writeInt(dim);
+        data.writeInt(xPos);
+        data.writeInt(zPos);
+        data.writeBoolean(includeinit);
+        data.writeShort((short) (yPos & 65535));
+        data.writeShort((short) (yMSBPos & 65535));
+        data.writeInt(len);
+        data.writeInt(chunkData.length);
+        data.ensureWritable(len);
+        data.writeBytes(compressedChunkData, 0, len);
 
-	@Override
-	public void handle(ByteBuf in, EntityPlayer player) {
-		int dim = in.readInt();
-		int xPos = in.readInt();
-		int zPos = in.readInt();
-		boolean reqinit = in.readBoolean();
-		short yPos = in.readShort();
-		short yMSBPos = in.readShort();
-		int compressedsize = in.readInt();
-		int uncompressedsize = in.readInt();
-		byte[] chunkData = inflateChunkData(in, compressedsize, uncompressedsize);
+        return buildPacket(data);
+    }
 
-		if (chunkData == null) {
-			LookingGlassPacketManager.bus.sendToServer(PacketRequestChunk.createPacket(xPos, yPos, zPos, dim));
-			LoggerUtils.error("Chunk decompression failed: %d\t:\t%d\t\t%d : %d\n", yMSBPos, yPos, compressedsize, uncompressedsize);
-			return;
-		}
-		handle(player, chunkData, dim, xPos, zPos, reqinit, yPos, yMSBPos);
-	}
+    @Override
+    public void handle(ByteBuf in, EntityPlayer player) {
+        int dim = in.readInt();
+        int xPos = in.readInt();
+        int zPos = in.readInt();
+        boolean reqinit = in.readBoolean();
+        short yPos = in.readShort();
+        short yMSBPos = in.readShort();
+        int compressedsize = in.readInt();
+        int uncompressedsize = in.readInt();
+        byte[] chunkData = inflateChunkData(in, compressedsize, uncompressedsize);
 
-	public void handle(EntityPlayer player, byte[] chunkData, int dim, int xPos, int zPos, boolean reqinit, short yPos, short yMSBPos) {
-		WorldClient proxyworld = ProxyWorldManager.getProxyworld(dim);
-		if (proxyworld == null) return;
-		if (proxyworld.provider.dimensionId != dim) return;
+        if (chunkData == null) {
+            LookingGlassPacketManager.bus.sendToServer(PacketRequestChunk.createPacket(xPos, yPos, zPos, dim));
+            LoggerUtils.error(
+                "Chunk decompression failed: %d\t:\t%d\t\t%d : %d\n",
+                yMSBPos,
+                yPos,
+                compressedsize,
+                uncompressedsize);
+            return;
+        }
+        handle(player, chunkData, dim, xPos, zPos, reqinit, yPos, yMSBPos);
+    }
 
-		//TODO: Test to see if this first part is even necessary
-		Chunk chunk = proxyworld.getChunkProvider().provideChunk(xPos, zPos);
-		if (reqinit && (chunk == null || chunk.isEmpty())) {
-			if (yPos == 0) {
-				proxyworld.doPreChunk(xPos, zPos, false);
-				return;
-			}
-			proxyworld.doPreChunk(xPos, zPos, true);
-		}
-		// End possible removal section
-		proxyworld.invalidateBlockReceiveRegion(xPos << 4, 0, zPos << 4, (xPos << 4) + 15, 256, (zPos << 4) + 15);
-		chunk = proxyworld.getChunkFromChunkCoords(xPos, zPos);
-		if (reqinit && (chunk == null || chunk.isEmpty())) {
-			proxyworld.doPreChunk(xPos, zPos, true);
-			chunk = proxyworld.getChunkFromChunkCoords(xPos, zPos);
-		}
-		if (chunk != null) {
-			chunk.fillChunk(chunkData, yPos, yMSBPos, reqinit);
-			receivedChunk(proxyworld, xPos, zPos);
-			if (!reqinit || !(proxyworld.provider instanceof WorldProviderSurface)) {
-				chunk.resetRelightChecks();
-			}
-		}
-	}
+    public void handle(EntityPlayer player, byte[] chunkData, int dim, int xPos, int zPos, boolean reqinit, short yPos,
+        short yMSBPos) {
+        WorldClient proxyworld = ProxyWorldManager.getProxyworld(dim);
+        if (proxyworld == null) return;
+        if (proxyworld.provider.dimensionId != dim) return;
 
-	public void receivedChunk(WorldClient worldObj, int cx, int cz) {
-		worldObj.markBlockRangeForRenderUpdate(cx << 4, 0, cz << 4, (cx << 4) + 15, 256, (cz << 4) + 15);
-		Chunk c = worldObj.getChunkFromChunkCoords(cx, cz);
-		if (c == null || c.isEmpty()) return;
+        // TODO: Test to see if this first part is even necessary
+        Chunk chunk = proxyworld.getChunkProvider()
+            .provideChunk(xPos, zPos);
+        if (reqinit && (chunk == null || chunk.isEmpty())) {
+            if (yPos == 0) {
+                proxyworld.doPreChunk(xPos, zPos, false);
+                return;
+            }
+            proxyworld.doPreChunk(xPos, zPos, true);
+        }
+        // End possible removal section
+        proxyworld.invalidateBlockReceiveRegion(xPos << 4, 0, zPos << 4, (xPos << 4) + 15, 256, (zPos << 4) + 15);
+        chunk = proxyworld.getChunkFromChunkCoords(xPos, zPos);
+        if (reqinit && (chunk == null || chunk.isEmpty())) {
+            proxyworld.doPreChunk(xPos, zPos, true);
+            chunk = proxyworld.getChunkFromChunkCoords(xPos, zPos);
+        }
+        if (chunk != null) {
+            chunk.fillChunk(chunkData, yPos, yMSBPos, reqinit);
+            receivedChunk(proxyworld, xPos, zPos);
+            if (!reqinit || !(proxyworld.provider instanceof WorldProviderSurface)) {
+                chunk.resetRelightChecks();
+            }
+        }
+    }
 
-		for (WorldView activeview : ProxyWorldManager.getWorldViews(worldObj.provider.dimensionId)) {
-			activeview.onChunkReceived(cx, cz);
-		}
+    public void receivedChunk(WorldClient worldObj, int cx, int cz) {
+        worldObj.markBlockRangeForRenderUpdate(cx << 4, 0, cz << 4, (cx << 4) + 15, 256, (cz << 4) + 15);
+        Chunk c = worldObj.getChunkFromChunkCoords(cx, cz);
+        if (c == null || c.isEmpty()) return;
 
-		int x = (cx << 4);
-		int z = (cz << 4);
-		for (int y = 0; y < worldObj.getActualHeight(); y += 16) {
-			if (c.getAreLevelsEmpty(y, y)) continue;
-			for (int x2 = 0; x2 < 16; ++x2) {
-				for (int z2 = 0; z2 < 16; ++z2) {
-					for (int y2 = 0; y2 < 16; ++y2) {
-						int lx = x + x2;
-						int ly = y + y2;
-						int lz = z + z2;
-						if (worldObj.getBlock(lx, ly, lz).hasTileEntity(worldObj.getBlockMetadata(lx, ly, lz))) {
-							LookingGlassPacketManager.bus.sendToServer(PacketRequestTE.createPacket(lx, ly, lz, worldObj.provider.dimensionId));
-						}
-					}
-				}
-			}
-		}
-	}
+        for (WorldView activeview : ProxyWorldManager.getWorldViews(worldObj.provider.dimensionId)) {
+            activeview.onChunkReceived(cx, cz);
+        }
 
-	private byte[] inflateChunkData(ByteBuf in, int compressedsize, int uncompressedsize) {
-		if (inflatearray == null || inflatearray.length < compressedsize) {
-			inflatearray = new byte[compressedsize];
-		}
-		in.readBytes(inflatearray, 0, compressedsize);
-		byte[] chunkData = new byte[uncompressedsize];
-		Inflater inflater = new Inflater();
-		inflater.setInput(inflatearray, 0, compressedsize);
+        int x = (cx << 4);
+        int z = (cz << 4);
+        for (int y = 0; y < worldObj.getActualHeight(); y += 16) {
+            if (c.getAreLevelsEmpty(y, y)) continue;
+            for (int x2 = 0; x2 < 16; ++x2) {
+                for (int z2 = 0; z2 < 16; ++z2) {
+                    for (int y2 = 0; y2 < 16; ++y2) {
+                        int lx = x + x2;
+                        int ly = y + y2;
+                        int lz = z + z2;
+                        if (worldObj.getBlock(lx, ly, lz)
+                            .hasTileEntity(worldObj.getBlockMetadata(lx, ly, lz))) {
+                            LookingGlassPacketManager.bus
+                                .sendToServer(PacketRequestTE.createPacket(lx, ly, lz, worldObj.provider.dimensionId));
+                        }
+                    }
+                }
+            }
+        }
+    }
 
-		try {
-			inflater.inflate(chunkData);
-		} catch (DataFormatException e) {
-			return null;
-		} finally {
-			inflater.end();
-		}
-		return chunkData;
-	}
+    private byte[] inflateChunkData(ByteBuf in, int compressedsize, int uncompressedsize) {
+        if (inflatearray == null || inflatearray.length < compressedsize) {
+            inflatearray = new byte[compressedsize];
+        }
+        in.readBytes(inflatearray, 0, compressedsize);
+        byte[] chunkData = new byte[uncompressedsize];
+        Inflater inflater = new Inflater();
+        inflater.setInput(inflatearray, 0, compressedsize);
 
-	public static Extracted getMapChunkData(Chunk chunk, boolean includeinit, int subid) {
-		int j = 0;
-		ExtendedBlockStorage[] aextendedblockstorage = chunk.getBlockStorageArray();
-		int k = 0;
-		S21PacketChunkData.Extracted extracted = new S21PacketChunkData.Extracted();
-		if (dataarray == null || dataarray.length < 196864) {
-			dataarray = new byte[196864];
-		}
-		byte[] abyte = dataarray;
+        try {
+            inflater.inflate(chunkData);
+        } catch (DataFormatException e) {
+            return null;
+        } finally {
+            inflater.end();
+        }
+        return chunkData;
+    }
 
-		if (includeinit) {
-			chunk.sendUpdates = true;
-		}
+    public static Extracted getMapChunkData(Chunk chunk, boolean includeinit, int subid) {
+        int j = 0;
+        ExtendedBlockStorage[] aextendedblockstorage = chunk.getBlockStorageArray();
+        int k = 0;
+        S21PacketChunkData.Extracted extracted = new S21PacketChunkData.Extracted();
+        if (dataarray == null || dataarray.length < 196864) {
+            dataarray = new byte[196864];
+        }
+        byte[] abyte = dataarray;
 
-		int l;
+        if (includeinit) {
+            chunk.sendUpdates = true;
+        }
 
-		for (l = 0; l < aextendedblockstorage.length; ++l) {
-			if (aextendedblockstorage[l] != null && (!includeinit || !aextendedblockstorage[l].isEmpty()) && (subid & 1 << l) != 0) {
-				extracted.field_150280_b |= 1 << l;
+        int l;
 
-				if (aextendedblockstorage[l].getBlockMSBArray() != null) {
-					extracted.field_150281_c |= 1 << l;
-					++k;
-				}
-			}
-		}
+        for (l = 0; l < aextendedblockstorage.length; ++l) {
+            if (aextendedblockstorage[l] != null && (!includeinit || !aextendedblockstorage[l].isEmpty())
+                && (subid & 1 << l) != 0) {
+                extracted.field_150280_b |= 1 << l;
 
-		for (l = 0; l < aextendedblockstorage.length; ++l) {
-			if (aextendedblockstorage[l] != null && (!includeinit || !aextendedblockstorage[l].isEmpty()) && (subid & 1 << l) != 0) {
-				byte[] abyte1 = aextendedblockstorage[l].getBlockLSBArray();
-				System.arraycopy(abyte1, 0, abyte, j, abyte1.length);
-				j += abyte1.length;
-			}
-		}
+                if (aextendedblockstorage[l].getBlockMSBArray() != null) {
+                    extracted.field_150281_c |= 1 << l;
+                    ++k;
+                }
+            }
+        }
 
-		NibbleArray nibblearray;
+        for (l = 0; l < aextendedblockstorage.length; ++l) {
+            if (aextendedblockstorage[l] != null && (!includeinit || !aextendedblockstorage[l].isEmpty())
+                && (subid & 1 << l) != 0) {
+                byte[] abyte1 = aextendedblockstorage[l].getBlockLSBArray();
+                System.arraycopy(abyte1, 0, abyte, j, abyte1.length);
+                j += abyte1.length;
+            }
+        }
 
-		for (l = 0; l < aextendedblockstorage.length; ++l) {
-			if (aextendedblockstorage[l] != null && (!includeinit || !aextendedblockstorage[l].isEmpty()) && (subid & 1 << l) != 0) {
-				nibblearray = aextendedblockstorage[l].getMetadataArray();
-				System.arraycopy(nibblearray.data, 0, abyte, j, nibblearray.data.length);
-				j += nibblearray.data.length;
-			}
-		}
+        NibbleArray nibblearray;
 
-		for (l = 0; l < aextendedblockstorage.length; ++l) {
-			if (aextendedblockstorage[l] != null && (!includeinit || !aextendedblockstorage[l].isEmpty()) && (subid & 1 << l) != 0) {
-				nibblearray = aextendedblockstorage[l].getBlocklightArray();
-				System.arraycopy(nibblearray.data, 0, abyte, j, nibblearray.data.length);
-				j += nibblearray.data.length;
-			}
-		}
+        for (l = 0; l < aextendedblockstorage.length; ++l) {
+            if (aextendedblockstorage[l] != null && (!includeinit || !aextendedblockstorage[l].isEmpty())
+                && (subid & 1 << l) != 0) {
+                nibblearray = aextendedblockstorage[l].getMetadataArray();
+                System.arraycopy(nibblearray.data, 0, abyte, j, nibblearray.data.length);
+                j += nibblearray.data.length;
+            }
+        }
 
-		if (!chunk.worldObj.provider.hasNoSky) {
-			for (l = 0; l < aextendedblockstorage.length; ++l) {
-				if (aextendedblockstorage[l] != null && (!includeinit || !aextendedblockstorage[l].isEmpty()) && (subid & 1 << l) != 0) {
-					nibblearray = aextendedblockstorage[l].getSkylightArray();
-					System.arraycopy(nibblearray.data, 0, abyte, j, nibblearray.data.length);
-					j += nibblearray.data.length;
-				}
-			}
-		}
+        for (l = 0; l < aextendedblockstorage.length; ++l) {
+            if (aextendedblockstorage[l] != null && (!includeinit || !aextendedblockstorage[l].isEmpty())
+                && (subid & 1 << l) != 0) {
+                nibblearray = aextendedblockstorage[l].getBlocklightArray();
+                System.arraycopy(nibblearray.data, 0, abyte, j, nibblearray.data.length);
+                j += nibblearray.data.length;
+            }
+        }
 
-		if (k > 0) {
-			for (l = 0; l < aextendedblockstorage.length; ++l) {
-				if (aextendedblockstorage[l] != null && (!includeinit || !aextendedblockstorage[l].isEmpty()) && aextendedblockstorage[l].getBlockMSBArray() != null && (subid & 1 << l) != 0) {
-					nibblearray = aextendedblockstorage[l].getBlockMSBArray();
-					System.arraycopy(nibblearray.data, 0, abyte, j, nibblearray.data.length);
-					j += nibblearray.data.length;
-				}
-			}
-		}
+        if (!chunk.worldObj.provider.hasNoSky) {
+            for (l = 0; l < aextendedblockstorage.length; ++l) {
+                if (aextendedblockstorage[l] != null && (!includeinit || !aextendedblockstorage[l].isEmpty())
+                    && (subid & 1 << l) != 0) {
+                    nibblearray = aextendedblockstorage[l].getSkylightArray();
+                    System.arraycopy(nibblearray.data, 0, abyte, j, nibblearray.data.length);
+                    j += nibblearray.data.length;
+                }
+            }
+        }
 
-		if (includeinit) {
-			byte[] abyte2 = chunk.getBiomeArray();
-			System.arraycopy(abyte2, 0, abyte, j, abyte2.length);
-			j += abyte2.length;
-		}
+        if (k > 0) {
+            for (l = 0; l < aextendedblockstorage.length; ++l) {
+                if (aextendedblockstorage[l] != null && (!includeinit || !aextendedblockstorage[l].isEmpty())
+                    && aextendedblockstorage[l].getBlockMSBArray() != null
+                    && (subid & 1 << l) != 0) {
+                    nibblearray = aextendedblockstorage[l].getBlockMSBArray();
+                    System.arraycopy(nibblearray.data, 0, abyte, j, nibblearray.data.length);
+                    j += nibblearray.data.length;
+                }
+            }
+        }
 
-		extracted.field_150282_a = new byte[j];
-		System.arraycopy(abyte, 0, extracted.field_150282_a, 0, j);
-		return extracted;
-	}
+        if (includeinit) {
+            byte[] abyte2 = chunk.getBiomeArray();
+            System.arraycopy(abyte2, 0, abyte, j, abyte2.length);
+            j += abyte2.length;
+        }
+
+        extracted.field_150282_a = new byte[j];
+        System.arraycopy(abyte, 0, extracted.field_150282_a, 0, j);
+        return extracted;
+    }
 }

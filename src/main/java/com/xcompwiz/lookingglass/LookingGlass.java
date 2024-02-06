@@ -43,75 +43,93 @@ import cpw.mods.fml.common.registry.EntityRegistry;
 
 @Mod(modid = LookingGlass.MODID, name = "LookingGlass", version = LookingGlass.VERSION)
 public class LookingGlass {
-	public static final String	MODID	= "LookingGlass";
-	public static final String	VERSION	= "@VERSION@";
 
-	@Instance(LookingGlass.MODID)
-	public static LookingGlass	instance;
+    public static final String MODID = "LookingGlass";
+    public static final String VERSION = "@VERSION@";
 
-	@SidedProxy(clientSide = "com.xcompwiz.lookingglass.client.ClientProxy", serverSide = "com.xcompwiz.lookingglass.core.CommonProxy")
-	public static CommonProxy	sidedProxy;
+    @Instance(LookingGlass.MODID)
+    public static LookingGlass instance;
 
-	@EventHandler
-	public void preinit(FMLPreInitializationEvent event) {
-		//Initialize the packet handling
-		LookingGlassPacketManager.registerPacketHandler(new PacketCreateView(), (byte) 10);
-		LookingGlassPacketManager.registerPacketHandler(new PacketCloseView(), (byte) 11);
-		LookingGlassPacketManager.registerPacketHandler(new PacketWorldInfo(), (byte) 100);
-		LookingGlassPacketManager.registerPacketHandler(new PacketChunkInfo(), (byte) 101);
-		LookingGlassPacketManager.registerPacketHandler(new PacketTileEntityNBT(), (byte) 102);
-		LookingGlassPacketManager.registerPacketHandler(new PacketRequestWorldInfo(), (byte) 200);
-		LookingGlassPacketManager.registerPacketHandler(new PacketRequestChunk(), (byte) 201);
-		LookingGlassPacketManager.registerPacketHandler(new PacketRequestTE(), (byte) 202);
+    @SidedProxy(
+        clientSide = "com.xcompwiz.lookingglass.client.ClientProxy",
+        serverSide = "com.xcompwiz.lookingglass.core.CommonProxy")
+    public static CommonProxy sidedProxy;
 
-		LookingGlassPacketManager.bus = NetworkRegistry.INSTANCE.newEventDrivenChannel(LookingGlassPacketManager.CHANNEL);
-		LookingGlassPacketManager.bus.register(new LookingGlassPacketManager());
+    @EventHandler
+    public void preinit(FMLPreInitializationEvent event) {
+        // Initialize the packet handling
+        LookingGlassPacketManager.registerPacketHandler(new PacketCreateView(), (byte) 10);
+        LookingGlassPacketManager.registerPacketHandler(new PacketCloseView(), (byte) 11);
+        LookingGlassPacketManager.registerPacketHandler(new PacketWorldInfo(), (byte) 100);
+        LookingGlassPacketManager.registerPacketHandler(new PacketChunkInfo(), (byte) 101);
+        LookingGlassPacketManager.registerPacketHandler(new PacketTileEntityNBT(), (byte) 102);
+        LookingGlassPacketManager.registerPacketHandler(new PacketRequestWorldInfo(), (byte) 200);
+        LookingGlassPacketManager.registerPacketHandler(new PacketRequestChunk(), (byte) 201);
+        LookingGlassPacketManager.registerPacketHandler(new PacketRequestTE(), (byte) 202);
 
-		// Load our basic configs
-		ModConfigs.loadConfigs(new Configuration(event.getSuggestedConfigurationFile()));
+        LookingGlassPacketManager.bus = NetworkRegistry.INSTANCE
+            .newEventDrivenChannel(LookingGlassPacketManager.CHANNEL);
+        LookingGlassPacketManager.bus.register(new LookingGlassPacketManager());
 
-		// Here we use the recommended config file to establish a good place to put a log file for any proxy world error logs.  Used primarily to log the full errors when ticking or rendering proxy worlds. 
-		File configroot = event.getSuggestedConfigurationFile().getParentFile();
-		// Main tick handler. Handles FML events.
-		FMLCommonHandler.instance().bus().register(new LookingGlassEventHandler(new File(configroot.getParentFile(), "logs/proxyworlds.log")));
-		// Forge event handler
-		MinecraftForge.EVENT_BUS.register(new LookingGlassForgeEventHandler());
+        // Load our basic configs
+        ModConfigs.loadConfigs(new Configuration(event.getSuggestedConfigurationFile()));
 
-		// Initialize the API provider system.  Beware, this way be dragons.
-		APIProviderImpl.init();
-	}
+        // Here we use the recommended config file to establish a good place to put a log file for any proxy world error
+        // logs. Used primarily to log the full errors when ticking or rendering proxy worlds.
+        File configroot = event.getSuggestedConfigurationFile()
+            .getParentFile();
+        // Main tick handler. Handles FML events.
+        FMLCommonHandler.instance()
+            .bus()
+            .register(new LookingGlassEventHandler(new File(configroot.getParentFile(), "logs/proxyworlds.log")));
+        // Forge event handler
+        MinecraftForge.EVENT_BUS.register(new LookingGlassForgeEventHandler());
 
-	@EventHandler
-	public void init(FMLInitializationEvent event) {
-		// Our one and only entity.
-		EntityRegistry.registerModEntity(com.xcompwiz.lookingglass.entity.EntityPortal.class, "lookingglass.portal", 216, this, 64, 10, false);
+        // Initialize the API provider system. Beware, this way be dragons.
+        APIProviderImpl.init();
+    }
 
-		sidedProxy.init();
-	}
+    @EventHandler
+    public void init(FMLInitializationEvent event) {
+        // Our one and only entity.
+        EntityRegistry.registerModEntity(
+            com.xcompwiz.lookingglass.entity.EntityPortal.class,
+            "lookingglass.portal",
+            216,
+            this,
+            64,
+            10,
+            false);
 
-	@EventHandler
-	public void handleIMC(IMCEvent event) {
-		// Catch IMC messages and send them off to our IMC handler
-		ImmutableList<IMCMessage> messages = event.getMessages();
-		IMCHandler.process(messages);
-	}
+        sidedProxy.init();
+    }
 
-	@EventHandler
-	public void postinit(FMLPostInitializationEvent event) {}
+    @EventHandler
+    public void handleIMC(IMCEvent event) {
+        // Catch IMC messages and send them off to our IMC handler
+        ImmutableList<IMCMessage> messages = event.getMessages();
+        IMCHandler.process(messages);
+    }
 
-	@EventHandler
-	public void serverStart(FMLServerStartingEvent event) {
-		MinecraftServer mcserver = event.getServer();
-		// Register commands
-		((ServerCommandManager) mcserver.getCommandManager()).registerCommand(new CommandCreateView());
-		// Start up the packet dispatcher we use for throttled data to client.
-		ServerPacketDispatcher.getInstance().start(); //Note: This might need to be preceded by a force init of the ServerPacketDispatcher.  Doesn't seem to currently have any issues, though.
-	}
+    @EventHandler
+    public void postinit(FMLPostInitializationEvent event) {}
 
-	@EventHandler
-	public void serverStop(FMLServerStoppedEvent event) {
-		// Shutdown our throttled packet dispatcher
-		ServerPacketDispatcher.getInstance().halt();
-		ServerPacketDispatcher.shutdown();
-	}
+    @EventHandler
+    public void serverStart(FMLServerStartingEvent event) {
+        MinecraftServer mcserver = event.getServer();
+        // Register commands
+        ((ServerCommandManager) mcserver.getCommandManager()).registerCommand(new CommandCreateView());
+        // Start up the packet dispatcher we use for throttled data to client.
+        ServerPacketDispatcher.getInstance()
+            .start(); // Note: This might need to be preceded by a force init of the ServerPacketDispatcher. Doesn't
+                      // seem to currently have any issues, though.
+    }
+
+    @EventHandler
+    public void serverStop(FMLServerStoppedEvent event) {
+        // Shutdown our throttled packet dispatcher
+        ServerPacketDispatcher.getInstance()
+            .halt();
+        ServerPacketDispatcher.shutdown();
+    }
 }

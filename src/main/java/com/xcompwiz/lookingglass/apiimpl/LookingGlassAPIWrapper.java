@@ -11,18 +11,20 @@ import cpw.mods.fml.relauncher.SideOnly;
 
 /**
  * This is the API wrapper (instance) class for the WorldView API at version 1.
+ * 
  * @author xcompwiz
  */
 @SuppressWarnings("deprecation")
 public class LookingGlassAPIWrapper extends APIWrapper implements IWorldViewAPI {
 
-	public LookingGlassAPIWrapper(String modname) {
-		super(modname);
-	}
+    public LookingGlassAPIWrapper(String modname) {
+        super(modname);
+    }
 
-	@Override
-	@SideOnly(Side.CLIENT)
-	public IWorldView createWorldView(Integer dimid, ChunkCoordinates spawn, int width, int height) {
-		return ProxyWorldManager.createWorldView(dimid, (spawn != null ? new ChunkCoordinates(spawn) : null), width, height);
-	}
+    @Override
+    @SideOnly(Side.CLIENT)
+    public IWorldView createWorldView(Integer dimid, ChunkCoordinates spawn, int width, int height) {
+        return ProxyWorldManager
+            .createWorldView(dimid, (spawn != null ? new ChunkCoordinates(spawn) : null), width, height);
+    }
 }
